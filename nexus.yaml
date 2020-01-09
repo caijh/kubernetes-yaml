@@ -1,0 +1,65 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nexus3
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: nfs-storage
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: nexus3
+  name: nexus3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus3
+  template:
+    metadata:
+      labels:
+        app: nexus3
+    spec:
+      containers:
+        - name: nexus3
+          image: sonatype/nexus3:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 4
+              memory: 4Gi
+            requests:
+              cpu: 0.5
+              memory: 2Gi
+          ports:
+          - containerPort: 8081
+            protocol: TCP
+          volumeMounts:
+          - name: nexus-data
+            mountPath: /nexus-data
+      volumes:
+        - name: nexus-data
+          persistentVolumeClaim:
+            claimName: nexus3-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus
+  labels:
+    app: nexus3
+spec:
+  type: NodePort
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
+  selector:
+    app: nexus3

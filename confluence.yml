@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: confluence
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: nfs-storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: confluence
+  labels:
+    service: confluence
+    app: confluence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: confluence
+  template:
+    metadata:
+      labels:
+        app: confluence
+    spec:
+      containers:
+        - name: confluence
+          image: 10.38.2.12:1000/atlassian/confluence-server:latest
+          env:
+            - name: JVM_MINIMUM_MEMORY
+              value: 2048m
+            - name: JVM_MAXIMUM_MEMORY
+              value: 2048m
+          ports:
+            - containerPort: 8090
+          volumeMounts:
+          - mountPath: "/var/atlassian/application-data/confluence"
+            name: confluence-pvc
+      volumes:
+      - name: confluence-pvc
+        persistentVolumeClaim:
+          claimName: confluence
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: confluence
+  labels:
+    app: confluence
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8090
+    targetPort: 8090
+    nodePort: 30085
+    protocol: TCP
+  selector:
+    app: confluence

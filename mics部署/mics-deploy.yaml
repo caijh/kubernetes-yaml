@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mics-xxx
+  namespace: hjmos
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mics-xxx
+  template:
+    metadata:
+      labels:
+        app: mics-xxx
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - node1
+                - node2
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - mics-xxx
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: mics
+        image: 10.38.2.12:1000/library/centos_mics2.3:v1
+        ports:
+        - containerPort: 8080
+        env:
+          - name: MICS_MACHINE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: MICS_ENTITY
+            value: XxsSystemStatusAgent
+          - name: TYPE
+            value: TRA_CHB
+          - name: DB_NAME
+            value: ITS_GZL6
+          - name: DB_USER
+            value: ITS_GZL6
+          - name: DB_PASSWORD
+            value: ITS_GZL6
+          - name: DB_CHARSET
+            value: WE8MSWIN1252
+          - name: DB_HOST
+            value: 172.16.162.203
+          - name: DB_PORT
+            value: 1521
+          - name: NIC
+            value: en1
+          - name: VIRTUAL_IP
+            value: 172.16.60.189
+          - name: NET_MASK
+            value: 255.255.252.0

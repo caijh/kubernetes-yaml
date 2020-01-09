@@ -1,0 +1,143 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openldap
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: managed-nfs-storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: openldap
+    spec:
+      containers:
+      - name: openldap
+        image: 10.38.2.12:1000/library/osixia-openldap:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 389
+            name: openldap
+          - containerPort: 636
+        env:
+        - name: LDAP_ORGANISATION
+          value: try
+        - name: LDAP_DOMAIN
+          value: "try.com"
+        - name: LDAP_BASE_DN
+          value: "dc=try,dc=com"
+        - name: LDAP_ADMIN_PASSWORD
+          value: "PCIadmin!"
+        volumeMounts:
+          - name: openldap-data
+            mountPath: "/var/lib/ldap"
+            subPath: data
+          - name: openldap-data
+            mountPath: "/etc/ldap/slapd.d"
+            subPath: config
+          - name: openldap-data
+            mountPath: /container/service/slapd/assets/certs
+            subPath: certs
+          - name: container-run
+            mountPath: /container/run
+        livenessProbe:
+            tcpSocket:
+              port: openldap
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: openldap
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 10
+      volumes:
+      - name: openldap-data
+        persistentVolumeClaim:
+          claimName: openldap
+      - name: container-run
+        emptyDir: {}
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpldapadmin
+  labels:
+    app: phpldapadmin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpldapadmin
+  template:
+    metadata:
+      labels:
+        app: phpldapadmin
+    spec:
+      containers:
+      - name: phpldapadmin
+        image: 10.38.2.12:1000/library/osixia-openldap:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 389
+            name: openldap
+          - containerPort: 636
+        env:
+        - name: LDAP_ORGANISATION
+          value: try
+        - name: LDAP_DOMAIN
+          value: "try.com"
+        - name: LDAP_BASE_DN
+          value: "dc=try,dc=com"
+        - name: LDAP_ADMIN_PASSWORD
+          value: "PCIadmin!"
+        volumeMounts:
+          - name: openldap-data
+            mountPath: "/var/lib/ldap"
+            subPath: data
+          - name: openldap-data
+            mountPath: "/etc/ldap/slapd.d"
+            subPath: config
+          - name: openldap-data
+            mountPath: /container/service/slapd/assets/certs
+            subPath: certs
+          - name: container-run
+            mountPath: /container/run
+        livenessProbe:
+            tcpSocket:
+              port: openldap
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: openldap
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 10
+      volumes:
+      - name: openldap-data
+        persistentVolumeClaim:
+          claimName: openldap
+      - name: container-run
+        emptyDir: {}
