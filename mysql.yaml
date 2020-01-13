@@ -8,7 +8,7 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: 10Gi
+      storage: 5Gi
   storageClassName: nfs-storage
 
 ---
@@ -41,7 +41,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
-  namespace: mics
   labels:
     app: mysql
 spec:
@@ -93,7 +92,7 @@ spec:
               key: mysql-password
               name: my-mysql
         - name: MYSQL_USER
-          value: mics
+          value: dbuser
         ports:
         - containerPort: 3306
           name: mysql
@@ -114,7 +113,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysql-svc
+  name: mysql
   labels:
     app: mysql
 spec:
