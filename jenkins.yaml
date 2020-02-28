@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-leader
+  labels:
+    app: jenkins-leader
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: nfs-storage
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins-leader
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: jenkins-leader
+    spec:
+      securityContext:
+        fsGroup: 99
+        runAsUser: 0
+      containers:
+        - name: jenkins-leader
+          image: jenkins/jenkins:tls
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+          ports:
+            - containerPort: 8080
+            - containerPort: 50000
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-leader
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  labels:
+    app: jenkins-leader
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      nodePort: 30082
+  selector:
+    app: jenkins-leader
