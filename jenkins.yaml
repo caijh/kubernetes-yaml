@@ -14,12 +14,15 @@ spec:
   storageClassName: nfs-storage
 
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jenkins-leader
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins-leader
   template:
     metadata:
       labels:
@@ -54,9 +57,28 @@ metadata:
   labels:
     app: jenkins-leader
 spec:
-  type: NodePort
   ports:
     - port: 8080
-      nodePort: 30082
+      name: jenkins
   selector:
     app: jenkins-leader
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jenkins
+  labels:
+    app: jenkins-leader
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /jenkins(/|$)(.*)
+            backend:
+              serviceName: jenkins
+              servicePort: jenkins
