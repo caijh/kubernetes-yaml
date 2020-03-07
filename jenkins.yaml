@@ -33,7 +33,7 @@ spec:
         runAsUser: 0
       containers:
         - name: jenkins-leader
-          image: jenkins/jenkins:tls
+          image: jenkins/jenkins:lts
           volumeMounts:
             - name: jenkins-home
               mountPath: /var/jenkins_home
