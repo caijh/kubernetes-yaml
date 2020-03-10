@@ -82,3 +82,18 @@ spec:
             backend:
               serviceName: jenkins
               servicePort: jenkins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-np
+  labels:
+    app: jenkins-leader
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      nodePort: 30081
+      name: jenkins
+  selector:
+    app: jenkins-leader
