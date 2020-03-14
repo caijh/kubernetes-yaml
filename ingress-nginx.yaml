@@ -217,7 +217,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: nginx-ingress-controller
-          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.30.0
+          image: quay.mirrors.ustc.edu.cn/kubernetes-ingress-controller/nginx-ingress-controller:0.30.0
           args:
             - /nginx-ingress-controller
             - --configmap=$(POD_NAMESPACE)/nginx-configuration
@@ -276,7 +276,6 @@ spec:
                   - /wait-shutdown
 
 ---
-
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -291,3 +290,22 @@ spec:
       memory: 90Mi
       cpu: 100m
     type: Container
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
