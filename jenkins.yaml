@@ -59,29 +59,10 @@ metadata:
 spec:
   ports:
     - port: 8080
+      targetPort: 8080
       name: jenkins
   selector:
     app: jenkins-leader
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: jenkins
-  labels:
-    app: jenkins-leader
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-spec:
-  rules:
-    - http:
-        paths:
-          - path: /jenkins(/|$)(.*)
-            backend:
-              serviceName: jenkins
-              servicePort: jenkins
 ---
 apiVersion: v1
 kind: Service
@@ -93,7 +74,7 @@ spec:
   type: NodePort
   ports:
     - port: 8080
+      targetPort: 8080
       nodePort: 30081
-      name: jenkins
   selector:
     app: jenkins-leader
