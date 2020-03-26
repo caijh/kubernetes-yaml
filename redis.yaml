@@ -80,7 +80,7 @@ spec:
   spec:
     type: NodePort
     ports:
-      - port: 6370
-        nodePort: 30012
+      - port: 6379
+        nodePort: 60379
     selector:
       app: redis
