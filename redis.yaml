@@ -2,8 +2,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: redis-single-conf
-  namespace: redis
+  name: redis-conf
 data:
   redis.conf: |
     appendonly yes
@@ -14,7 +13,7 @@ data:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: redis-single-pvc
+  name: redis
 spec:
   accessModes:
     - ReadWriteMany
@@ -27,18 +26,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
-  namespace: redis
   labels:
-    app: redis-single
+    app: redis
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis-single
+      app: redis
   template:
     metadata:
       labels:
-        app: redis-single
+        app: redis
     spec:
       containers:
       - name: redis
@@ -66,10 +64,23 @@ spec:
       volumes:
       - name: "redis-conf"
         configMap:
-          name: "redis-single-conf"
+          name: "redis-conf"
           items:
             - key: "redis.conf"
               path: "redis.conf"
       - name: redis-data
         persistentVolumeClaim:
-          claimName: redis-single-pvc
+          claimName: redis
+
+---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: redis
+  spec:
+    type: NodePort
+    ports:
+      - port: 6379
+        nodePort: 60379
+    selector:
+      app: redis
