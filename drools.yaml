@@ -1,0 +1,80 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: drools-data
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+        storage: 10Gi
+  storageClassName: nfs-storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drools-workbench
+  labels:
+    app: drools-workbench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drools-workbench
+  template:
+    metadata:
+      labels:
+        app: drools-workbench
+    spec:
+      containers:
+      - image: jboss/drools-workbench-showcase:latest
+        imagePullPolicy: IfNotPresent
+        name: drools-workbench
+        ports:
+          - containerPort: 8080
+          - containerPort: 8001
+        volumeMounts:
+          - name: drools-data
+            mountPath: /opt/jboss/wildfly/bin/.niogit
+            subPath: wb_git
+          - name: drools-data
+            mountPath: /opt/jboss/wildfly/standalone/log
+            subPath: logs
+      volumes:
+      - name: drools-data
+        persistentVolumeClaim:
+          claimName: drools-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drools-workbench
+  labels:
+    app: drools-workbench
+spec:
+  ports:
+    - port: 8080
+  selector:
+    app: drools-workbench
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: drools-workbench
+  labels:
+    app: drools-workbench
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /business-central(/|$)(.*)
+            backend:
+              serviceName: drools-workbench
+              servicePort: 8080
