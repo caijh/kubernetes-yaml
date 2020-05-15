@@ -1,0 +1,215 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: zabbix-mysql
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs-storage
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  custom.cnf: |
+    [mysqld]
+    default_storage_engine=innodb
+    max_connections=2000
+    skip_external_locking
+    lower_case_table_names=1
+    skip_host_cache
+    skip_name_resolve
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zabbix-mysql
+type: Opaque
+data:
+  mysql-root-password: MTIzNDU2
+  mysql-password: "emFiYml4Cg=="
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-mysql
+  labels:
+    app: zabbix-mysql
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-mysql
+  #strategy:
+  #  type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: zabbix-mysql
+    spec:
+      containers:
+      - image: mysql:5.7
+        imagePullPolicy: IfNotPresent
+        name: mysql
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - "-c"
+            - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+            - mysql -h 127.0.0.1 -u root -e "SELECT 1"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - "-c"
+            - MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"
+            - mysql -h 127.0.0.1 -u root -e "SELECT 1"
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: mysql-root-password
+              name: zabbix-mysql
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: mysql-password
+              name: zabbix-mysql
+        - name: MYSQL_USER
+          value: zabbix
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-pv
+          mountPath: /var/lib/mysql
+        - name: mysql-config
+          mountPath: /etc/mysql/conf.d/
+      volumes:
+      - name: mysql-pv
+        persistentVolumeClaim:
+          claimName: zabbix-mysql
+      - name: mysql-config
+        configMap:
+          name: mysql-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-mysql
+  labels:
+    app: zabbix-mysql
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: zabbix-mysql
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbixserver
+spec:
+  type: NodePort
+  ports:
+  - port:  10051
+    nodePort: 30051
+    protocol: TCP
+    targetPort: 10051
+  selector:
+    app: zabbix-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zabbix-server
+  template:
+    metadata:
+      labels:
+        app: zabbix-server
+    spec:
+      containers:
+        - name: zabbix-server
+          image: zabbix/zabbix-server-mysql
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 10051
+            name: server
+            protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: server
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: server
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          env:
+          - name: DB_SERVER_HOST
+            value: "zabbix-mysql"
+          - name: MYSQL_USER
+            value: "zabbix"
+          - name: MYSQL_PASSWORD
+            value: "zabbix"
+          - name: MYSQL_DATABASE
+            value: "zabbix"
+          - name: ZBX_CACHESIZE
+            value: "1024M"
+          - name: ZBX_TRENDCACHESIZE
+            value: "1024M"
+          - name: ZBX_HISTORYCACHESIZE
+            value: "2048M"
+          - name: ZBX_HISTORYINDEXCACHESIZE
+            value: "1024M"
+          - name: ZBX_STARTTRAPPERS
+            value: "5"
+          - name: ZBX_STARTPREPROCESSORS
+            value: "10"
+          - name: ZBX_STARTDBSYNCERS
+            value: "10"
+          - name: DB_SERVER_PORT
+            value: "3306"
+        - name: zabbix-agent
+          image: zabbix/zabbix-agent:latest
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 10050
+            name: zabbix-agent
+          env:
+          - name: ZBX_HOSTNAME
+            value: "Zabbix server"
+          - name: ZBX_SERVER_HOST
+            value: "127.0.0.1"
+          - name: ZBX_PASSIVE_ALLOW
+            value: "true"
+          - name: ZBX_STARTAGENTS
+            value: "3"
+          - name: ZBX_TIMEOUT
+            value: "10"
+          securityContext:
+            privileged: true
