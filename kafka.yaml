@@ -87,7 +87,7 @@ spec:
         - name: ALLOW_PLAINTEXT_LISTENER
           value: "yes"
         - name: KAFKA_HEAP_OPTS
-          value: "-Xmx512m -Xms1024m"
+          value: "-Xmx1024m -Xms1024m"
         - name: KAFKA_CFG_LOGS_DIRS
           value: /opt/bitnami/kafka/data
         - name: JMX_PORT
