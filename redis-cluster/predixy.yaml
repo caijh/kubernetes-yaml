@@ -1,0 +1,195 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: predixy-cm
+  namespace: redis-cluster
+data:
+  predixy.conf: |
+    Name PredixyExample
+    WorkerThreads 1
+    ClientTimeout 300
+    LogVerbSample 0
+    LogDebugSample 0
+    LogInfoSample 10000
+    LogNoticeSample 1
+    LogWarnSample 1
+    LogErrorSample 1
+    Include cluster.conf
+    Include latency.conf
+  cluster.conf: |
+    ClusterServerPool {
+        MasterReadPriority 60
+        StaticSlaveReadPriority 50
+        DynamicSlaveReadPriority 50
+        RefreshInterval 1
+        ServerTimeout 1
+        ServerFailureLimit 10
+        ServerRetryTimeout 1
+        KeepAlive 120
+        Servers {
+            + redis-0.redis.redis-cluster.svc.cluster.local:6379
+            + redis-1.redis.redis-cluster.svc.cluster.local:6379
+            + redis-2.redis.redis-cluster.svc.cluster.local:6379
+            + redis-3.redis.redis-cluster.svc.cluster.local:6379
+            + redis-4.redis.redis-cluster.svc.cluster.local:6379
+            + redis-5.redis.redis-cluster.svc.cluster.local:6379
+        }
+      }
+  latency.conf: |
+    LatencyMonitor all {
+      Commands {
+          + all
+          - blpop
+          - brpop
+          - brpoplpush
+      }
+      TimeSpan {
+          + 100
+          + 200
+          + 300
+          + 400
+          + 500
+          + 600
+          + 700
+          + 800
+          + 900
+          + 1000
+          + 1200
+          + 1400
+          + 1600
+          + 1700
+          + 1800
+          + 2000
+          + 2500
+          + 3000
+          + 3500
+          + 4000
+          + 4500
+          + 5000
+          + 6000
+          + 7000
+          + 8000
+          + 9000
+          + 10000
+      }
+    }
+
+    LatencyMonitor get {
+        Commands {
+            + get
+        }
+        TimeSpan {
+            + 100
+            + 200
+            + 300
+            + 400
+            + 500
+            + 600
+            + 700
+            + 800
+            + 900
+            + 1000
+        }
+    }
+
+    LatencyMonitor set {
+        Commands {
+            + set
+            + setnx
+            + setex
+        }
+        TimeSpan {
+            + 100
+            + 200
+            + 300
+            + 400
+            + 500
+            + 600
+            + 700
+            + 800
+            + 900
+            + 1000
+        }
+    }
+
+    LatencyMonitor blist {
+        Commands {
+            + blpop
+            + brpop
+            + brpoplpush
+        }
+        TimeSpan {
+            + 1000
+            + 2000
+            + 3000
+            + 4000
+            + 5000
+            + 6000
+            + 7000
+            + 8000
+            + 9000
+            + 10000
+            + 20000
+            + 30000
+            + 40000
+            + 50000
+            + 60000
+            + 70000
+            + 80000
+            + 90000
+            + 100000
+        }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predixy
+  labels:
+    app: predixy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: predixy
+  template:
+    metadata:
+      labels:
+        app: predixy
+    spec:
+      containers:
+      - name: predixy
+        image: haandol/predixy
+        ports:
+          - name: redis
+            containerPort: 7617
+        volumeMounts:
+          - name: "predixy-cm"
+            mountPath: "/etc/predixy/conf/predixy.conf"
+            subPath: "predixy.conf"
+          - name: "predixy-cm"
+            mountPath: "/etc/predixy/conf/cluster.conf"
+            subPath: "cluster.conf"
+          - name: "predixy-cm"
+            mountPath: "/etc/predixy/conf/latency.conf"
+            subPath: "latency.conf"
+      volumes:
+        - name: "predixy-cm"
+          configMap:
+            name: "predixy-cm"
+              
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: predixy
+spec:
+  type: NodePort
+  ports:
+    - port: 7617
+      nodePort: 36379
+  selector:
+    app: predixy
+  
