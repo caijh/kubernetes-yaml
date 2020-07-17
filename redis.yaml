@@ -73,14 +73,14 @@ spec:
           claimName: redis
 
 ---
-  apiVersion: v1
-  kind: Service
-  metadata:
-    name: redis
-  spec:
-    type: NodePort
-    ports:
-      - port: 6379
-        nodePort: 60379
-    selector:
-      app: redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  type: NodePort
+  ports:
+    - port: 6379
+      nodePort: 36379
+  selector:
+    app: redis
