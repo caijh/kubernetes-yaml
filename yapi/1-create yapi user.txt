@@ -1,0 +1,9 @@
+
+kubectl exec -it mongo-0 /bin/bash -n kube-yapi
+
+# 进入mongo命令行，执行以下命令
+use admin
+db.auth('admin', 'admin')
+
+use yapi
+db.createUser({user: "yapi", pwd: "yapi123", roles: [{ role: "dbOwner", db: "yapi" }]})

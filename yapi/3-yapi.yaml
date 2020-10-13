@@ -1,0 +1,105 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: yapi-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs-storage
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: yapi-config
+data:
+  config.json: |
+    {
+      "port": "3000",
+      "adminAccount": "admin@admin.com",
+      "timeout":120000,
+      "db": {
+        "servername": "mongo.kube-yapi",
+        "DATABASE": "yapi",
+        "port": 27017,
+        "user": "yapi",
+        "pass": "yapi123",
+        "authSource": ""
+      },
+      "mail": {
+        "enable": true,
+        "host": "smtp.163.com",
+        "port": 465,
+        "from": "***@163.com",
+        "auth": {
+          "user": "***@163.com",
+          "pass": "*****"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yapi
+  labels:
+    app: yapi
+    release: yapi
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: yapi
+      release: yapi
+  template:
+    metadata:
+      labels:
+        app: yapi
+        release: yapi
+    spec:
+      containers:
+      - name: yapi
+        image: yapi:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: yapi
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /yapi/config.json
+          subPath: config.json
+        - name: datadir
+          mountPath: /yapi/vendors
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+      volumes:
+      - name: config
+        configMap:
+          name: yapi-config
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: yapi-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yapi-svc
+  namespace: kube-yapi
+spec:
+  ports:
+  - name: yapi
+    port: 3000
+    targetPort: yapi
+    protocol: TCP
+  selector:
+    app: yapi
+    release: yapi
