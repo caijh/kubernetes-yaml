@@ -1,0 +1,195 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sftpgo-home-data
+  labels:
+    app: sftpgo-nginx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: nfs-storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sftpgo-data
+  labels:
+    app: sftpgo-nginx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: nfs-storage
+---
+# Source: sftpgo/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sftpgo-nginx
+  labels:
+    helm.sh/chart: sftpgo-0.4.1
+    app.kubernetes.io/name: sftpgo
+    app.kubernetes.io/instance: sftpgo-nginx
+    app.kubernetes.io/version: "2.0.2"
+---
+# Source: sftpgo/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sftpgo-nginx-config
+  labels:
+    app.kubernetes.io/name: sftpgo
+    app.kubernetes.io/instance: sftpgo-nginx
+    app.kubernetes.io/version: "2.0.2"
+data:
+  sftpgo.json: |-
+    {}
+---
+# Source: sftpgo/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sftpgo-nginx
+  labels:
+    app.kubernetes.io/name: sftpgo
+    app.kubernetes.io/instance: sftpgo-nginx
+    app.kubernetes.io/version: "2.0.2"
+spec:
+  type: NodePort
+  ports:
+    - name: sftp
+      port: 22
+      targetPort: sftp
+      protocol: TCP
+      nodePort: 31022
+    - name: ftp
+      port: 21
+      targetPort: ftp
+      protocol: TCP
+      nodePort: 31021
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+      nodePort: 31080
+    - name: telemetry
+      port: 10000
+      targetPort: telemetry
+      protocol: TCP
+    - name: nginx
+      port: 8080
+      targetPort: nginx
+      protocol: TCP
+      nodePort: 31088
+  selector:
+    app.kubernetes.io/name: sftpgo
+    app.kubernetes.io/instance: sftpgo-nginx
+---
+# Source: sftpgo/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sftpgo-nginx
+  labels:
+    app.kubernetes.io/name: sftpgo
+    app.kubernetes.io/instance: sftpgo-nginx
+    app.kubernetes.io/version: "2.0.2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sftpgo
+      app.kubernetes.io/instance: sftpgo-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sftpgo
+        app.kubernetes.io/instance: sftpgo-nginx
+    spec:
+      serviceAccountName: sftpgo-nginx
+      securityContext:
+        {}
+      containers:
+        - name: sftpgo
+          securityContext:
+            {}
+          image: "172.25.10.70:1000/library/caiunhui/ghcr.io/drakkan/sftpgo:v2.0.2"
+          imagePullPolicy: IfNotPresent
+          args:
+            - sftpgo
+            - serve
+          env:
+            - name: SFTPGO_SFTPD__BINDINGS__0__PORT
+              value: "2022"
+            - name: SFTPGO_SFTPD__BINDINGS__0__ADDRESS
+              value: "0.0.0.0"
+            - name: SFTPGO_FTPD__BINDINGS__0__PORT
+              value: "2021"
+            - name: SFTPGO_FTPD__BINDINGS__0__ADDRESS
+              value: "0.0.0.0"
+            - name: SFTPGO_HTTPD__BINDINGS__0__PORT
+              value: "8080"
+            - name: SFTPGO_HTTPD__BINDINGS__0__ADDRESS
+              value: "0.0.0.0"
+            - name: SFTPGO_TELEMETRY__BIND_PORT
+              value: "10000"
+            - name: SFTPGO_TELEMETRY__BIND_ADDRESS
+              value: "0.0.0.0"
+          ports:
+            - name: sftp
+              containerPort: 2022
+              protocol: TCP
+            - name: ftp
+              containerPort: 2021
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: telemetry
+              containerPort: 10000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: telemetry
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: telemetry
+          resources:
+            {}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/sftpgo
+              readOnly: true
+            - name: sftpgo-home-data
+              mountPath: "/var/lib/sftpgo"
+            - name: sftpgo-data
+              mountPath: "/srv/sftpgo"
+        - name: nginx
+          image: "172.25.10.70:1000/library/caiunhui/nginx:1.19.8"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: nginx
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: sftpgo-data
+              mountPath: "/usr/share/nginx/html"
+              subPath:
+      volumes:
+        - name: config
+          configMap:
+            name: sftpgo-nginx-config
+        - name: sftpgo-data
+          persistentVolumeClaim:
+            claimName: sftpgo-data
+        - name: sftpgo-home-data
+          persistentVolumeClaim:
+            claimName: sftpgo-home-data
