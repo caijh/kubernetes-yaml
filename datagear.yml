@@ -1,0 +1,71 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: hjmos-datagear
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs-storage
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: hjmos-datagear
+  name: hjmos-datagear
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hjmos-datagear
+  template:
+    metadata:
+      labels:
+        app: hjmos-datagear
+    spec:
+      containers:
+        - name: hjmos-datagear
+          image: 172.25.10.70:1000/library/hjmos-datagear:1.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: APP_OPTS
+              value: "
+                      --DataGearWorkspace=/data
+                      --directory.derby=//derby-datagear:1527/APP
+                      "
+          resources:
+            limits:
+              cpu: 4
+              memory: 4Gi
+            requests:
+              cpu: 0.5
+              memory: 2Gi
+          ports:
+          - containerPort: 50401
+            protocol: TCP
+          volumeMounts:
+          - name: datagear-data
+            mountPath: /data
+      volumes:
+        - name: datagear-data
+          persistentVolumeClaim:
+            claimName: hjmos-datagear
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hjmos-datagear
+  labels:
+    app: hjmos-datagear
+spec:
+  type: NodePort
+  ports:
+    - port: 50401
+      targetPort: 50401
+      nodePort: 30401
+  selector:
+    app: hjmos-datagear

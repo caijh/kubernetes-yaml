@@ -1,0 +1,58 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: derby-datagear
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: nfs-storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: derby-datagear
+  labels:
+    app: derby-datagear
+spec:
+  selector:
+    matchLabels:
+      app: derby-datagear
+  template:
+    metadata:
+      labels:
+        app: derby-datagear
+    spec:
+      containers:
+      - image: 172.25.10.70:1000/library/derby-datagear:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: derby-datagear
+        ports:
+        - containerPort: 1527
+          name: derby
+        volumeMounts:
+        - name: derby-datagear-pv
+          mountPath: /dbs
+      volumes:
+      - name: derby-datagear-pv
+        persistentVolumeClaim:
+          claimName: derby-datagear
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-datagear
+  labels:
+    app: derby-datagear
+spec:
+  type: NodePort
+  ports:
+    - port: 1527
+      nodePort: 31527
+  selector:
+    app: derby-datagear
